@@ -29,11 +29,15 @@ async def game(ctx):
     categoriesUrl = requests.get("https://opentdb.com/api_category.php").text
     categories = json.loads(categoriesUrl)
     category = "Select category by entering a number. \n"
-    count = 1
-    for j in categories['trivia_categories']:
-        category += f"\n {count}. {j['name']}"
-        count+=1
+
+    for i, k in enumerate(categories['trivia_categories']):
+        category += f"\n {i+1}. {k['name']}"
+    # count = 1
+    # for j in categories['trivia_categories']:
+    #     category += f"\n {count}. {j['name']}"
+    #     count+=1
     category += "\n 25. All categories."
+
     embedMessage = embed(category)
     await ctx.send(embed=embedMessage)
     userCategory = await bot.wait_for("message", check=lambda  m: m.channel == ctx.channel and m.author == ctx.author)
@@ -132,6 +136,5 @@ async def game(ctx):
     except:
         embedMessage = embed("Invalid game settings. Game not started.")
         await ctx.send(embed=embedMessage)
-
 
 bot.run(TOKEN)
