@@ -9,10 +9,12 @@ import time
 bot = commands.Bot(command_prefix = "$")
 client = discord.Client()
 
-TOKEN = 'OTI3NzM3NTk5OTE1ODg0NTg2.YdOk-A.XNoFoBcU8-mGSO8-rOCk5lpav1c'
+TOKEN = ''
 
-def embed(description):
+def embed(description, subheading, text):
     embed=discord.Embed(title="Trivia Bot", description=f"{description}", color=discord.Color.blue())
+    embed.set_thumbnail(url="https://play-lh.googleusercontent.com/r1BdZXKHH87GTCWLI9-OU1AWltnPrZr8Lg-lrG_BOZAlC_nRky6wk_qUCrUuMOt2v5k")
+    embed.add_field(name=subheading, value=text)
     return embed
 
 @bot.event
@@ -23,27 +25,23 @@ async def on_ready():
 async def on_message(message):
     if message.author == client.user:
         return
+    await bot.process_commands(message)
 
 @bot.command()
 async def game(ctx):
     categoriesUrl = requests.get("https://opentdb.com/api_category.php").text
     categories = json.loads(categoriesUrl)
-    category = "Select category by entering a number. \n"
-
-    for i, k in enumerate(categories['trivia_categories']):
-        category += f"\n {i+1}. {k['name']}"
-    # count = 1
-    # for j in categories['trivia_categories']:
-    #     category += f"\n {count}. {j['name']}"
-    #     count+=1
-    category += "\n 25. All categories."
-
-    embedMessage = embed(category)
+    #category = "Select category by entering a number. \n"
+    category=""
+    for i, j in enumerate(categories['trivia_categories']):
+        category += f"\n {i+1}. {j['name']}"
+    category += "\n 25. All Categories"
+    embedMessage = embed("Select Category By Entering a Number", "\nCategories", category)
     await ctx.send(embed=embedMessage)
     userCategory = await bot.wait_for("message", check=lambda  m: m.channel == ctx.channel and m.author == ctx.author)
 
-    embedMessage = embed("Select difficulty by entering a number.\n \n1. Easy 2. Medium 3. Hard 4. All difficulties")
-    await ctx.send(embed = embedMessage)
+    embedMessage = embed("Select Difficulty By Entering a Number", "\nDifficulties", "\n1. Easy\n 2. Medium\n 3. Hard\n 4. All Difficulties")
+    await ctx.send(embed=embedMessage)
     userDifficulty = await bot.wait_for("message", check=lambda m: m.channel == ctx.channel and m.author == ctx.author)
     if userDifficulty.content == "1":
         difficulty = "easy"
@@ -52,9 +50,13 @@ async def game(ctx):
     elif userDifficulty.content == "3":
         difficulty = "hard"
 
-    embedMessage = embed("Select how many questions you would like (Please enter a # between 1-50).")
+    embedMessage = embed("Set Number Of Questions", "To Set", "Please enter a number between 1-50.")
     await ctx.send(embed=embedMessage)
     userNoQuestions = await bot.wait_for("message", check=lambda m: m.channel == ctx.channel and m.author == ctx.author)
+
+    embedMessage = embed("Set Time Limit To Answer Questions", "To Set", "Please enter a number in seconds.")
+    await ctx.send(embed=embedMessage)
+    userTimeLimit = await bot.wait_for("message", check=lambda m: m.channel == ctx.channel and m.author == ctx.author)
 
     try:
         if userCategory.content == "25" and userDifficulty.content == "4":
@@ -68,7 +70,7 @@ async def game(ctx):
 
             questions = json.loads(questionsUrl)
 
-        embedMessage = embed("React with the thumbs up to join the game. React with the checkmark to start the game!")
+        embedMessage = embed("Start The Game!", "Options", "React with the thumbs up to join the game.\nReact with the checkmark to start the game!" )
         startMessage = await ctx.send(embed=embedMessage)
         cacheStartMessage = discord.utils.get(bot.cached_messages, id=startMessage.id)
         thumbsUp = '\N{THUMBS UP SIGN}'
@@ -90,17 +92,16 @@ async def game(ctx):
 
         players.pop("Lisa")
 
-        for i in questions['results']:
+        for j, i in enumerate(questions['results']):
             answers = i['incorrect_answers']
             answers.append(i['correct_answer'])
             random.shuffle(answers)
             time.sleep(1)
-            question = f"You have 10 seconds to answer. \nCategory: {i['category']} \nDifficulty: {i['difficulty']} \n \n{i['question']} \n1. {answers[0]} \n2. {answers[1]} \n3. {answers[2]} \n4.{answers[3]} "
-            question = html.unescape(question)
-            embedMessage = embed(question)
+            question = f"\n\n1. {answers[0]} \n2. {answers[1]} \n3. {answers[2]} \n4. {answers[3]} "
+            embedMessage = embed(f"{i['category']}", html.unescape(i['question']), html.unescape(question))
             await ctx.send(embed=embedMessage)
 
-            time.sleep(5)
+            time.sleep(int(userTimeLimit.content))
             tempAnswers = {}
             async for message in startMessage.channel.history(limit=len(players)):
                 if message.author.display_name in players:
@@ -110,31 +111,29 @@ async def game(ctx):
                 if answers[int(tempAnswers[player])-1] == i['correct_answer']:
                     players[player] += 1
 
-            embedMessage = embed(f"Times up. \n\n The correct answer was '{i['correct_answer']}'")
-            await ctx.send(embed=embedMessage)
-
             if i != questions['results'][-1]:
                 time.sleep(1)
                 players = {k: v for k, v in sorted(players.items(), reverse=True, key=lambda item: item[1])}
-                currentScore = "Current Scores:"
-                counter1 = 0
-                for player in players:
-                    counter1 +=1
-                    currentScore += f"\n{counter1}. {player}: {players[player]} / {userNoQuestions.content}"
-                embedMessage = embed(currentScore)
+                currentScore = ""
+
+                for k,l in enumerate(players):
+                    currentScore += f"\n{k+1}. {l.capitalize()}: {players[l]}/{j+1}"
+                embedMessage = embed(f"Times Up!\n\n The correct answer was '{i['correct_answer']}'.\n", "Scoreboard", currentScore)
                 await ctx.send(embed=embedMessage)
+
+                time.sleep(3)
 
         players = {k: v for k, v in sorted(players.items(), reverse=True, key=lambda item: item[1])}
         finalScore = "Final Scores:"
-        counter2 = 0
-        for player in players:
-            counter2 += 1
-            finalScore += f"\n {counter2}. {player}: {players[player]} / {userNoQuestions.content} ({int(players[player])/int(userNoQuestions.content)*100:.2f}%)"
-        embedMessage = embed(finalScore)
+        for m,n in enumerate(players):
+            if m == 1:
+                winner = n.capitalize()
+            finalScore += f"\n {m+1}. {n.capitalize()}: {players[n]}/{userNoQuestions.content}"
+        embedMessage = embed("Game Over!", f"Winner: {winner}!", f"\n\n {finalScore}")
         await ctx.send(embed=embedMessage)
 
     except:
-        embedMessage = embed("Invalid game settings. Game not started.")
+        embedMessage = embed("Game Not Started.", "Why?", "Invalid game settings have been selected. Type $game to start a new game.")
         await ctx.send(embed=embedMessage)
 
 bot.run(TOKEN)
